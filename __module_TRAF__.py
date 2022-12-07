@@ -90,7 +90,7 @@ def generate_args(method):
             varDict['IMPEDANCE_SPEED_FREIGHT'] = 'V_FR_OS'
             varDict['IMPEDANCE_SPEED_VAN']     = 'V_PA_OS'
 
-            varDict['LABEL'] = 'REF'
+            varDict['LABEL'] = 'SurfTest'
         
             
         else:  # This is the part for line cod execution
@@ -107,13 +107,16 @@ def generate_args(method):
             varDict['SEGS']  = varDict['INPUTFOLDER'] + sys.argv[8] #'SEGS2020.csv'
             varDict['LINKS'] = varDict['INPUTFOLDER'] + sys.argv[9] #'links_v5.shp'
             varDict['SUP_COORDINATES_ID'] = varDict['INPUTFOLDER'] + sys.argv[10] #'SupCoordinatesID.csv'
-            varDict['VEHICLE_CAPACITY']    = varDict['INPUTFOLDER'] + sys.argv[11] #'CarryingCapacity.csv'
-            varDict['EMISSIONFACS_BUITENWEG_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[12] #'EmissieFactoren_BUITENWEG_LEEG.csv'
-            varDict['EMISSIONFACS_BUITENWEG_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[13] #'EmissieFactoren_BUITENWEG_VOL.csv'
-            varDict['EMISSIONFACS_SNELWEG_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[14] #'EmissieFactoren_SNELWEG_LEEG.csv'
-            varDict['EMISSIONFACS_SNELWEG_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[15] #'EmissieFactoren_SNELWEG_VOL.csv'
-            varDict['EMISSIONFACS_STAD_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[16] #'EmissieFactoren_STAD_LEEG.csv'
-            varDict['EMISSIONFACS_STAD_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[17] #'EmissieFactoren_STAD_VOL.csv'
+            varDict['COST_VEHTYPE']        = varDict['INPUTFOLDER'] + sys.argv[11] #'Cost_VehType_2016.csv'
+            varDict['COST_SOURCING']       = varDict['INPUTFOLDER'] + sys.argv[12] #'Cost_Sourcing_2016.csv'
+            varDict['VEHICLE_CAPACITY']    = varDict['INPUTFOLDER'] + sys.argv[13] #'CarryingCapacity.csv'
+            varDict['EMISSIONFACS_BUITENWEG_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[14] #'EmissieFactoren_BUITENWEG_LEEG.csv'
+            varDict['EMISSIONFACS_BUITENWEG_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[15] #'EmissieFactoren_BUITENWEG_VOL.csv'
+            varDict['EMISSIONFACS_SNELWEG_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[16] #'EmissieFactoren_SNELWEG_LEEG.csv'
+            varDict['EMISSIONFACS_SNELWEG_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[17] #'EmissieFactoren_SNELWEG_VOL.csv'
+            varDict['EMISSIONFACS_STAD_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[18] #'EmissieFactoren_STAD_LEEG.csv'
+            varDict['EMISSIONFACS_STAD_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[19] #'EmissieFactoren_STAD_VOL.csv'
+            varDict['LABELShipmentTour' ] = sys.argv[20] #'EmissieFactoren_STAD_VOL.csv'
             varDict['SELECTED_LINKS'] = ""
             varDict['N_MULTIROUTE']=""
             varDict['N_CPU'] = ""
@@ -123,7 +126,31 @@ def generate_args(method):
             varDict['IMPEDANCE_SPEED_FREIGHT'] = 'V_FR_OS'
             varDict['IMPEDANCE_SPEED_VAN']     = 'V_PA_OS'
 
-             
+            print("vars loaded")
+            # params_file = open(locationparam)
+            # for line in params_file:
+            #     if len(line.split('=')) > 1:
+            #         key, value = line.split('=')
+            #         if len(value.split(';')) > 1:
+            #             # print(value)
+            #             value, dtype = value.split(';')
+            #             if len(dtype.split('#')) > 1: dtype, comment = dtype.split('#')
+            #             # Allow for spacebars around keys, values and dtypes
+            #             while key[0] == ' ' or key[0] == '\t': key = key[1:]
+            #             while key[-1] == ' ' or key[-1] == '\t': key = key[0:-1]
+            #             while value[0] == ' ' or value[0] == '\t': value = value[1:]
+            #             while value[-1] == ' ' or value[-1] == '\t': value = value[0:-1]
+            #             while dtype[0] == ' ' or dtype[0] == '\t': dtype = dtype[1:]
+            #             while dtype[-1] == ' ' or dtype[-1] == '\t': dtype = dtype[0:-1]
+            #             dtype = dtype.replace('\n',"")
+            #             # print(key, value, dtype)
+            #             if dtype == 'string': varDict[key] = str(value)
+            #             elif dtype == 'list': varDict[key] = ast.literal_eval(value)
+            #             elif dtype == 'int': varDict[key] = int(value)               
+            #             elif dtype == 'float': varDict[key] = float(value)               
+            #             elif dtype == 'bool': varDict[key] = eval(value)               
+            #             elif dtype == 'variable': varDict[key] = globals()[value]
+            #             elif dtype == 'eval': varDict[key] = eval(value)
     elif method == 'from_code':
 
         print('Generating args from code')
@@ -171,7 +198,7 @@ def generate_args(method):
     args = ['', varDict]
     return args, varDict
 
-method = 'from_code' #either from_file or from_code
+method = 'from_file' #either from_file or from_code
 
 
 args, varDict = generate_args(method)
@@ -281,11 +308,14 @@ def actually_run_module(args):
     are performed.
     '''
     try:
-
-        start_time = time.time()
-
+        
+        
         root    = args[0]
         varDict = args[1]
+        start_time = time.time()
+
+        # np.random.seed(int(varDict['Seed']))
+        print(root)
 
         if root != '':
             root.progressBar['value'] = 0
@@ -389,7 +419,9 @@ def actually_run_module(args):
                 log_file.write(message + '\n')
         else:
             nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
-
+            
+            
+        nCPU = 1  # To avoid issues in multithreading
         if root != '':
             root.progressBar['value'] = 0.2
 
@@ -678,7 +710,7 @@ def actually_run_module(args):
             (len(MRDHlinks), len(intensityFields))),
             columns=intensityFields)
 
-        # Van trips for service and construction purposes
+        # Van trips for service and construction purposes   
         vanTripsService = read_mtx(
             varDict['INPUTFOLDER'] + 'TripsVanService.mtx')
         vanTripsConstruction = read_mtx(
@@ -702,7 +734,7 @@ def actually_run_module(args):
             root.progressBar['value'] = 4.0
 
         # ------------ Information for the emission calculations --------------
-
+        print(varDict['EMISSIONFACS_STAD_VOL' ])
         # Read in emission factor (column 0=CO2, 1=SO2, 2=PM, 3=NOX)
         emissionsBuitenwegLeeg = np.array(pd.read_csv(
             varDict['EMISSIONFACS_BUITENWEG_LEEG'],
@@ -766,8 +798,9 @@ def actually_run_module(args):
             9: 0}
 
         # Import trips csv
+
         allTrips = pd.read_csv(
-            varDict['INPUTFOLDER'] + "Tours_" + varDict['LABEL'] + ".csv")
+           ( varDict['INPUTFOLDER'] + "Tours_" + varDict['LABELShipmentTour'] + ".csv"))
         allTrips['ORIG'] = [invZoneDict[x] for x in allTrips['ORIG']]
         allTrips['DEST'] = [invZoneDict[x] for x in allTrips['DEST']]
         allTrips.loc[allTrips['TRIP_DEPTIME'] >= 24, 'TRIP_DEPTIME'] -= 24
@@ -780,7 +813,7 @@ def actually_run_module(args):
 
         # Import parcel schedule csv
         allParcelTrips = pd.read_csv(
-            varDict['INPUTFOLDER'] + "ParcelSchedule_" + varDict['LABEL'] + ".csv")
+            varDict['INPUTFOLDER'] + "ParcelSchedule_" + varDict['LABEL'] + ".csv") #  varDict['ParcelMod_Tours']
         allParcelTrips = allParcelTrips.rename(
             columns={
                 'O_zone': 'ORIG',
@@ -874,7 +907,7 @@ def actually_run_module(args):
         tripMatricesTOD = []
         for tod in range(nHours):
             tripMatricesTOD.append(pd.read_csv(
-                varDict['INPUTFOLDER'] + "tripmatrix_" + varDict['LABEL'] + "_TOD" + str(tod) + ".txt",
+                varDict['INPUTFOLDER'] + "tripmatrix_" + varDict['LABELShipmentTour'] + "_TOD" + str(tod) + ".txt",
                 sep='\t'))
             tripMatricesTOD[tod]['ORIG'] = [
                 invZoneDict[x] for x in tripMatricesTOD[tod]['ORIG'].values]
@@ -2070,9 +2103,8 @@ def actually_run_module(args):
                 varDict['OUTPUTFOLDER'] +
                 'Shipments_AfterScheduling_' + varDict['LABEL'] + '_Emission' + '.csv')
             
-            toursPath_r = (
-                varDict['INPUTFOLDER'] +
-                'Tours_' + varDict['LABEL'] + '.csv')
+            toursPath_r =  varDict['INPUTFOLDER'] + "Tours_" + varDict['LABELShipmentTour'] + ".csv"
+
             parcelToursPath_r = (
                 varDict['INPUTFOLDER'] +
                 'ParcelSchedule_' + varDict['LABEL'] + '.csv')
@@ -2398,5 +2430,6 @@ if __name__ == '__main__':
     # Run the module
     print('-----Starting Traffic Assignment----')
     root = ''
-    main(varDict)
+    # main(varDict)
+    actually_run_module(args)
     print('\n----Traffic assignment Completed!----')
