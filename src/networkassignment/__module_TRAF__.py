@@ -15,7 +15,7 @@ from scipy.sparse import lil_matrix
 import multiprocessing as mp
 import functools
 from shapely.geometry import Point, Polygon, MultiPolygon
-from __functions__ import read_mtx, read_shape
+from utils import read_mtx, read_shape
 
 # Modules nodig voor de user interface
 import tkinter as tk
@@ -44,21 +44,19 @@ cwd = os.getcwd().replace(os.sep, '/')
 datapath = cwd.replace('Code', '')
 
 def generate_args(method):
-    varDict = {}
-
+    varDict = {} 
     '''FOR ALL MODULES'''
     cwd = os.getcwd().replace(os.sep, '/')
     datapath = cwd.replace('Code', '')
-
-    if method == 'from_file':
-
+    if method == 'from_file':   
+     
         if sys.argv[0] == '' :
             #params_file = open(f'{datapath}/Input/Params_ParcelGen.txt')
-            varDict['LABEL']			= 'ConsoleRun'
-            varDict['DATAPATH']			= f'{datapath}'
-
-            varDict['INPUTFOLDER']	 = f'{datapath}'+'/' +'Input' +'/'
-            varDict['OUTPUTFOLDER']  = f'{datapath}'+'/' +'Output' +'/'
+            varDict['LABEL']			= 'ConsoleRun'			
+            varDict['DATAPATH']			= f'{datapath}'							
+         
+            varDict['INPUTFOLDER']	 = f'{datapath}'+'/' +'Input' +'/' 
+            varDict['OUTPUTFOLDER']  = f'{datapath}'+'/' +'Output' +'/' 
 
             varDict['SKIMTIME']     = varDict['INPUTFOLDER'] +'skimTijd_new_REF.mtx'
             varDict['SKIMDISTANCE'] = varDict['INPUTFOLDER'] + 'skimAfstand_new_REF.mtx'
@@ -91,15 +89,15 @@ def generate_args(method):
             varDict['IMPEDANCE_SPEED_VAN']     = 'V_PA_OS'
 
             varDict['LABEL'] = 'SurfTest'
-
-
+        
+            
         else:  # This is the part for line cod execution
 
-            varDict['LABEL']			= sys.argv[1]
-            varDict['DATAPATH']			= datapath
-            varDict['INPUTFOLDER']		= f'{datapath}'+'/' + sys.argv[2] +'/'
-            varDict['OUTPUTFOLDER']		= f'{datapath}'+'/' + sys.argv[3] +'/'
-
+            varDict['LABEL']			= sys.argv[1]				
+            varDict['DATAPATH']			= datapath							
+            varDict['INPUTFOLDER']		= f'{datapath}'+'/' + sys.argv[2] +'/' 				
+            varDict['OUTPUTFOLDER']		= f'{datapath}'+'/' + sys.argv[3] +'/'			
+            
             varDict['SKIMTIME']     = varDict['INPUTFOLDER'] + sys.argv[4] #'skimTijd_REF.mtx'
             varDict['SKIMDISTANCE'] = varDict['INPUTFOLDER'] + sys.argv[5] #'skimAfstand_REF.mtx'
             varDict['NODES'] = varDict['INPUTFOLDER'] + sys.argv[6] #'nodes_v5.shp'
@@ -116,7 +114,7 @@ def generate_args(method):
             varDict['EMISSIONFACS_SNELWEG_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[17] #'EmissieFactoren_SNELWEG_VOL.csv'
             varDict['EMISSIONFACS_STAD_LEEG'] = varDict['INPUTFOLDER'] + sys.argv[18] #'EmissieFactoren_STAD_LEEG.csv'
             varDict['EMISSIONFACS_STAD_VOL' ] = varDict['INPUTFOLDER'] + sys.argv[19] #'EmissieFactoren_STAD_VOL.csv'
-            # varDict['LABELShipmentTour' ] = sys.argv[20] #'EmissieFactoren_STAD_VOL.csv'
+            varDict['LABELShipmentTour' ] = sys.argv[20] #'EmissieFactoren_STAD_VOL.csv'
             varDict['SELECTED_LINKS'] = ""
             varDict['N_MULTIROUTE']=""
             varDict['N_CPU'] = ""
@@ -146,20 +144,20 @@ def generate_args(method):
             #             # print(key, value, dtype)
             #             if dtype == 'string': varDict[key] = str(value)
             #             elif dtype == 'list': varDict[key] = ast.literal_eval(value)
-            #             elif dtype == 'int': varDict[key] = int(value)
-            #             elif dtype == 'float': varDict[key] = float(value)
-            #             elif dtype == 'bool': varDict[key] = eval(value)
+            #             elif dtype == 'int': varDict[key] = int(value)               
+            #             elif dtype == 'float': varDict[key] = float(value)               
+            #             elif dtype == 'bool': varDict[key] = eval(value)               
             #             elif dtype == 'variable': varDict[key] = globals()[value]
             #             elif dtype == 'eval': varDict[key] = eval(value)
     elif method == 'from_code':
 
         print('Generating args from code')
-
-        varDict['LABEL'] = 'REF'
-        varDict['DATAPATH']			= f'{datapath}'
-
-        varDict['INPUTFOLDER']	 = f'{datapath}'+'/' +'Input' +'/'
-        varDict['OUTPUTFOLDER']  = f'{datapath}'+'/' +'Output' +'/'
+            
+        varDict['LABEL'] = 'REF'			
+        varDict['DATAPATH']			= f'{datapath}'							
+        
+        varDict['INPUTFOLDER']	 = f'{datapath}'+'/' +'Input' +'/' 
+        varDict['OUTPUTFOLDER']  = f'{datapath}'+'/' +'Output' +'/' 
 
         varDict['SKIMTIME']     = varDict['INPUTFOLDER'] +'skimTijd_new_REF.mtx'
         varDict['SKIMDISTANCE'] = varDict['INPUTFOLDER'] + 'skimAfstand_new_REF.mtx'
@@ -189,18 +187,11 @@ def generate_args(method):
         varDict['SHIFT_VAN_TO_COMB1'] = ""
 
         varDict['IMPEDANCE_SPEED_FREIGHT'] = 'V_FR_OS'
-        varDict['IMPEDANCE_SPEED_VAN']     = 'V_PA_OS'
-
-
-
-
-
+        varDict['IMPEDANCE_SPEED_VAN'] = 'V_PA_OS'						   
     args = ['', varDict]
     return args, varDict
 
 method = 'from_file' #either from_file or from_code
-
-
 args, varDict = generate_args(method)
 
 #%% Main
@@ -308,8 +299,6 @@ def actually_run_module(args):
     are performed.
     '''
     try:
-
-
         root    = args[0]
         varDict = args[1]
         start_time = time.time()
@@ -419,8 +408,8 @@ def actually_run_module(args):
                 log_file.write(message + '\n')
         else:
             nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
-
-
+            
+            
         nCPU = 1  # To avoid issues in multithreading
         if root != '':
             root.progressBar['value'] = 0.2
@@ -710,7 +699,7 @@ def actually_run_module(args):
             (len(MRDHlinks), len(intensityFields))),
             columns=intensityFields)
 
-        # Van trips for service and construction purposes
+        # Van trips for service and construction purposes   
         vanTripsService = read_mtx(
             varDict['INPUTFOLDER'] + 'TripsVanService.mtx')
         vanTripsConstruction = read_mtx(
@@ -1214,7 +1203,7 @@ def actually_run_module(args):
                             prevFreight[r],
                             linkDict) for j in destZones]
                         for r in range(varDict['N_MULTIROUTE'])]
-
+                            
                     if doHybridRoutes:
                         hybridRoutes = [
                             [get_route(
@@ -1258,7 +1247,7 @@ def actually_run_module(args):
                             hybridZEZSstad = []
                             hybridZEZSbuitenweg = []
                             hybridZEZSsnelweg = []
-
+    
                             for r in range(varDict['N_MULTIROUTE']):
                                 hybridRoute = hybridRoutes[r][j]
                                 hybridRoutesStad.append(
@@ -1314,7 +1303,7 @@ def actually_run_module(args):
                                         whichMultiRoute]
                                     hybridRouteSnelweg = hybridRoutesSnelweg[
                                         whichMultiRoute]
-
+    
                                     hybridZEZstad = hybridZEZSstad[whichMultiRoute]
                                     hybridZEZbuitenweg = hybridZEZSbuitenweg[whichMultiRoute]
                                     hybridZEZsnelweg = hybridZEZSsnelweg[whichMultiRoute]
@@ -1338,27 +1327,27 @@ def actually_run_module(args):
                                                 vtDict[vt], et, capUt,
                                                 emissionsStadLeeg,
                                                 emissionsStadVol))
-
+    
                                         buitenwegEmissions  = (
                                             distArray[routeBuitenweg] *
                                             get_applicable_emission_fac(
                                                 vtDict[vt], et, capUt,
                                                 emissionsBuitenwegLeeg,
                                                 emissionsBuitenwegVol))
-
+    
                                         snelwegEmissions  = (
                                             distArray[routeSnelweg] *
                                             get_applicable_emission_fac(
                                                 vtDict[vt], et, capUt,
                                                 emissionsSnelwegLeeg,
                                                 emissionsSnelwegVol))
-
+    
                                         linkEmissionsArray[ls][tod][
                                             routeStad, et] += stadEmissions
                                         linkEmissionsArray[ls][tod][
-                                            routeBuitenweg, et] += buitenwegEmissions
+                                            routeBuitenweg, et] += buitenwegEmissions 
                                         linkEmissionsArray[ls][tod][
-                                            routeSnelweg, et] += snelwegEmissions
+                                            routeSnelweg, et] += snelwegEmissions 
 
                                         # Total CO2 of the trip
                                         if etDict[et] == 'CO2':
@@ -1376,14 +1365,14 @@ def actually_run_module(args):
                                                 vtDict[vt], et, capUt,
                                                 emissionsStadLeeg,
                                                 emissionsStadVol))
-
+    
                                         buitenwegEmissions  = (
                                             distArray[hybridRouteBuitenweg] *
                                             get_applicable_emission_fac(
                                                 vtDict[vt], et, capUt,
                                                 emissionsBuitenwegLeeg,
                                                 emissionsBuitenwegVol))
-
+    
                                         snelwegEmissions  = (
                                             distArray[hybridRouteSnelweg] *
                                             get_applicable_emission_fac(
@@ -1398,9 +1387,9 @@ def actually_run_module(args):
                                         linkEmissionsArray[ls][tod][
                                             hybridRouteStad, et] += stadEmissions
                                         linkEmissionsArray[ls][tod][
-                                            hybridRouteBuitenweg, et] += buitenwegEmissions
+                                            hybridRouteBuitenweg, et] += buitenwegEmissions 
                                         linkEmissionsArray[ls][tod][
-                                            hybridRouteSnelweg, et] += snelwegEmissions
+                                            hybridRouteSnelweg, et] += snelwegEmissions 
 
                                         # Total CO2 of the trip
                                         if etDict[et] == 'CO2':
@@ -1418,7 +1407,7 @@ def actually_run_module(args):
                     (43.0 - 33.0) * (tod + 1) / nHours)
 
         del prevFreight
-
+        
         if doHybridRoutes:
             del prevFreightHybrid
 
@@ -1526,7 +1515,7 @@ def actually_run_module(args):
                     csgraphVanHybrid[
                         np.array(MRDHlinks['A']),
                         np.array(MRDHlinks['B'])] = costVanHybrid
-
+    
                     if varDict['N_MULTIROUTE'] > 1:
                         csgraphVanHybrid[
                             np.array(MRDHlinks['A']),
@@ -1678,7 +1667,7 @@ def actually_run_module(args):
                                 vt = int(currentTrips[trip, 3])
                                 ct = int(currentTrips[trip, 6])
                                 capUt = currentTrips[trip, 4]
-
+                                
                                 if ct == 3:
                                     tmpRoute = hybridRoute
                                 else:
@@ -1808,7 +1797,7 @@ def actually_run_module(args):
                     prevVan[r],
                     linkDict) for j in destZones]
                 for r in range(varDict['N_MULTIROUTE'])]
-
+                
             if doHybridRoutes:
                 hybridRoutes = [
                     [get_route(
@@ -1870,12 +1859,12 @@ def actually_run_module(args):
                                     vtDict[vt], et, capUt,
                                     emissionsSnelwegLeeg,
                                     emissionsSnelwegVol))
-
+    
                             if varDict['LABEL'] == 'UCC' and tripIsZEZ:
                                 stadEmissions[ZEZstad] = 0.0
                                 buitenwegEmissions[ZEZbuitenweg] = 0.0
                                 snelwegEmissions[ZEZsnelweg] = 0.0
-
+    
                             linkVanEmissionsArray[0][
                                 routeStad, et] += stadEmissions
                             linkVanEmissionsArray[0][
@@ -1932,12 +1921,12 @@ def actually_run_module(args):
                                     vtDict[vt], et, capUt,
                                     emissionsSnelwegLeeg,
                                     emissionsSnelwegVol))
-
+    
                             if varDict['LABEL'] == 'UCC' and tripIsZEZ:
                                 stadEmissions[ZEZstad] = 0.0
                                 buitenwegEmissions[ZEZbuitenweg] = 0.0
                                 snelwegEmissions[ZEZsnelweg] = 0.0
-
+    
                             linkVanEmissionsArray[1][
                                 routeStad, et] += stadEmissions
                             linkVanEmissionsArray[1][
@@ -1960,7 +1949,7 @@ def actually_run_module(args):
 
         # Make some space available on the RAM
         del prevVan, vanTripsService, vanTripsConstruction
-
+        
         if doHybridRoutes:
             del prevVanHybrid
 
@@ -2102,7 +2091,7 @@ def actually_run_module(args):
             shipmentsPath_w = (
                 varDict['OUTPUTFOLDER'] +
                 'Shipments_AfterScheduling_' + varDict['LABEL'] + '_Emission' + '.csv')
-
+            
             toursPath_r =  varDict['INPUTFOLDER'] + "Tours_" + varDict['LABELShipmentTour'] + ".csv"
 
             parcelToursPath_r = (

@@ -9,7 +9,9 @@ import numpy as np
 import shapefile as shp
 import array
 import os.path
-
+from os.path import getsize, dirname
+from posixpath import splitext
+from zipfile import ZipFile
 
 def read_mtx(mtxfile):
     '''
@@ -41,6 +43,10 @@ def read_shape(shapePath, encoding='latin1', returnGeometry=False):
     Read the shapefile with zones (using pyshp --> import shapefile as shp)
     '''
     # Load the shape
+    with ZipFile(shapePath) as z:
+            z.extractall(path=dirname(shapePath))
+    shapePath = splitext(shapePath)[0] + '.shp'
+
     sf = shp.Reader(shapePath, encoding=encoding)
     records = sf.records()
     if returnGeometry:
