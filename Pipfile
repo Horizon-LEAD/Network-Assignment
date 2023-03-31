@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+python-dotenv = "==0.19.2"
 numpy = "==1.19.1"
 pandas = "==1.0.5"
 scipy = "==1.5.0"
@@ -15,4 +16,4 @@ numba = "==0.53.0"
 pylint = "*"
 
 [requires]
-python_version = "3.8.6"
+python_version = "3.8"
