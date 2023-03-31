@@ -1,36 +1,30 @@
 """Processing module
 """
 
+import sys
+import traceback
+from time import time
+from datetime import datetime
+from os.path import join
+import multiprocessing as mp
+import functools
+from logging import getLogger
+
 import numpy as np
 import pandas as pd
 import shapefile as shp
-import time
-import datetime
-from os.path import join
 from numba import njit, int32
-
 import scipy.sparse.csgraph
 from scipy.sparse import lil_matrix
-import multiprocessing as mp
-import functools
 from shapely.geometry import Point, Polygon, MultiPolygon
-from utils import read_mtx, read_shape
 
-# Modules nodig voor de user interface
-import tkinter as tk
-from tkinter.ttk import Progressbar
-import zlib
-import base64
-import tempfile
-from threading import Thread
-import os.path
-import ast
-import sys
-
-logger = getLogger("parcelgen.proc")
+from .utils import read_mtx, read_shape
 
 
-def run_model(cfg, root=None):
+logger = getLogger("networkassignment.proc")
+
+
+def run_model(cfg):
     '''
     Traffic assignment: Main body of the script where all calculations
     are performed.
@@ -38,28 +32,24 @@ def run_model(cfg, root=None):
 
     start_time = time()
 
-    if root:
-        root.progressBar['value'] = 0
-
     outdir = cfg['OUTDIR']
     label  = cfg['LABEL']
 
-    doShiftVanToElectric = (cfg['SHIFT_VAN_TO_COMB1'] != '')
-    
+    doShiftVanToElectric = cfg['SHIFT_VAN_TO_COMB1'] != ''
+
     exportShp = True
     addZezToLinks = False
 
-    log_file = open(join(outdir, "Logfile_TrafficAssignment.log"),'w')
-    log_file.write("Start simulation at: " + datetime.datetime.now().strftime("%y-%m-%d %H:%M") + "\n")
+    logger.info("Start simulation at: %s", datetime.now().strftime("%y-%m-%d %H:%M"))
 
     if cfg['N_MULTIROUTE'] == '':
         cfg['N_MULTIROUTE'] = 1
     else:
         cfg['N_MULTIROUTE'] = int(cfg['N_MULTIROUTE'])
 
-    dimLS = pd.read_csv(cfg['logistic_segment.txt'], sep='\t')
-    dimVT = pd.read_csv(cfg['vehicle_type.txt'], sep='\t')
-    dimET = pd.read_csv(cfg['emission_type.txt'], sep='\t')
+    dimLS = pd.read_csv(cfg['LOGISTIC_SEGMENT'], sep='\t')
+    dimVT = pd.read_csv(cfg['VEHICLE_TYPE'], sep='\t')
+    dimET = pd.read_csv(cfg['EMISSION_TYPE'], sep='\t')
 
     nLS = len(dimLS)  # Number of logistic segments
     nET = len(dimET)  # Number of emission types
@@ -73,7 +63,7 @@ def run_model(cfg, root=None):
     # Which vehicle type can be used in the parcel module
     vehTypesParcels = np.array(
             dimVT.loc[dimVT['IsAvailableInParcelModule'] == 1, 'ID'])
-    
+
     # Enumerate the different time periods (i.e. hours) of the day
     nHours = 24
     timeOfDays = np.arange(nHours)
@@ -94,8 +84,7 @@ def run_model(cfg, root=None):
             message = (
                 'Warning! ' +
                 'Could not convert SELECTED_LINKS to integers!')
-            print(message)
-            log_file.write(message + '\n')
+            logger.error(message)
 
     # Number of CPUs over which the route search procedure is parallelized
     maxCPU = 16
@@ -110,8 +99,7 @@ def run_model(cfg, root=None):
                     ' CPUs available. Hence defaulting to ' +
                     str(nCPU) +
                     'CPUs.')
-                print(message)
-                log_file.write(message + '\n')
+                logger.warning(message)
             if nCPU < 1:
                 nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
         except ValueError:
@@ -121,21 +109,20 @@ def run_model(cfg, root=None):
                 ' Hence defaulting to ' +
                 str(nCPU) +
                 'CPUs.')
-            print(message)
-            log_file.write(message + '\n')
+            logger.warning(message)
     else:
         nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
     nCPU = 1  # To avoid issues in multithreading
 
     # -------------- Importing and preprocessing network ------------------
-    log_file.write("Importing and preprocessing network...\n")
+    logger.info("Importing and preprocessing network...")
 
     # Import links
     MRDHlinks, MRDHlinksGeometry = read_shape(cfg['LINKS'], returnGeometry=True)
     nLinks = len(MRDHlinks)
 
     # Import nodes and zones
-    MRDHnodes = read_shape(cfg['NODES']) 
+    MRDHnodes = read_shape(cfg['NODES'])
     zones, zonesGeometry = read_shape(cfg['ZONES'], returnGeometry=True)
     nNodes = len(MRDHnodes)
 
@@ -159,7 +146,7 @@ def run_model(cfg, root=None):
     ZEZzones = set(np.where(zones['ZEZ'] >= 1)[0])
 
     if addZezToLinks:
-        log_file.write('Performing spatial coupling of ZEZ-zones to links...\n')
+        logger.info('Performing spatial coupling of ZEZ-zones to links...')
 
         # Get links as shapely Point objects
         shapelyLinks = []
@@ -253,7 +240,7 @@ def run_model(cfg, root=None):
             if x not in missingNodes:
                 missingNodes.append(x)
     if len(missingNodes) > 0:
-        raise BaseException(
+        raise ValueError(
             "Error! " +
             "The following NODENR values were found in the links shape " +
             " but not in the nodes shape! " + str(missingNodes))
@@ -262,7 +249,7 @@ def run_model(cfg, root=None):
     MRDHnodes['NODENR'] = np.arange(nNodes)
     MRDHlinks['A'] = [invNodeDict[x] for x in MRDHlinks['A']]
     MRDHlinks['B'] = [invNodeDict[x] for x in MRDHlinks['B']]
-    
+
     # Recode the link IDs from 0 to len(MRDHlinks)
     MRDHlinks.index = np.arange(len(MRDHlinks))
     MRDHlinks.index = MRDHlinks.index.map(int)
@@ -281,7 +268,7 @@ def run_model(cfg, root=None):
                 linkDict[aNode][col] = bNode
                 linkDict[aNode][col + maxNumConnections] = i
                 break
-    
+
     # Assume a speed of 50 km/h if there are links with freight speed <= 0
     nSpeedZero = np.sum(MRDHlinks[cfg['IMPEDANCE_SPEED_FREIGHT']] <= 0)
     if nSpeedZero > 0:
@@ -293,7 +280,7 @@ def run_model(cfg, root=None):
             str(nSpeedZero) + ' links found with freight speed (' +
             cfg['IMPEDANCE_SPEED_FREIGHT'] + ') <= 0 km/h. ' +
             'Adjusting those to 50 km/h.')
-        log_file.write(message + '\n')
+        logger.warning(message)
 
      # Assume a speed of 50 km/h if there are links with van speed <= 0
     nSpeedZero = np.sum(MRDHlinks[cfg['IMPEDANCE_SPEED_VAN']] <= 0)
@@ -306,7 +293,7 @@ def run_model(cfg, root=None):
             str(nSpeedZero) + ' links found with van speed (' +
             cfg['IMPEDANCE_SPEED_VAN'] + ') <= 0 km/h. ' +
             'Adjusting those to 50 km/h.')
-        log_file.write(message + '\n')
+        logger.warning(message)
 
     # Travel times and travel costs
     MRDHlinks['T0_FREIGHT'] = (
@@ -384,7 +371,7 @@ def run_model(cfg, root=None):
         (len(MRDHlinks), len(intensityFields))),
         columns=intensityFields)
 
-    # Van trips for service and construction purposes   
+    # Van trips for service and construction purposes
     vanTripsService = read_mtx(cfg['TripsVanService.mtx'])
     vanTripsConstruction = read_mtx(cfg['TripsVanConstruction.mtx'])
 
@@ -616,7 +603,7 @@ def run_model(cfg, root=None):
         selectedLinkTripsArray = np.zeros((len(MRDHlinks), nSelectedLinks))
 
     # ------------------ Route search (freight) ---------------------------
-    log_file.write("Start traffic assignment\n")
+    logger.info("Start traffic assignment...")
 
     tripsCO2 = {}
     parcelTripsCO2 = {}
@@ -653,7 +640,7 @@ def run_model(cfg, root=None):
             message = (
                 "\tRoute search " +
                 f"(freight - multirouting part {r+1})...")
-            log_file.write(message + "\n")
+            logger.debug(message)
 
             # The network with costs between nodes (freight)
             csgraphFreight = lil_matrix((nNodes, nNodes))
@@ -696,7 +683,7 @@ def run_model(cfg, root=None):
             message = (
                 "\tRoute search " +
                 f"(freight - multirouting part {r+1})...")
-            log_file.write(message + "\n")
+            logger.debug(message)
 
             # The network with costs between nodes (freight)
             csgraphFreight = lil_matrix((nNodes, nNodes))
@@ -728,7 +715,7 @@ def run_model(cfg, root=None):
                 message = (
                     "\tRoute search " +
                     f"(freight - hybrid combustion - multirouting part {r+1})...")
-                log_file.write(message + "\n")
+                logger.debug(message)
 
                 # The network with costs between nodes (freight)
                 csgraphFreightHybrid = lil_matrix((nNodes, nNodes))
@@ -771,7 +758,7 @@ def run_model(cfg, root=None):
                 message = (
                     "\tRoute search " +
                     f"(freight - hybrid combustion - multirouting part {r+1})...")
-                log_file.write(message + "\n")
+                logger.debug(message)
 
                 # The network with costs between nodes (freight)
                 csgraphFreightHybrid = lil_matrix((nNodes, nNodes))
@@ -794,7 +781,7 @@ def run_model(cfg, root=None):
         del csgraphFreightHybrid
 
     # --------------- Emissions and intensities (freight) -----------------
-    log_file.write("\tCalculating emissions and traffic intensities (freight)\n")
+    logger.info("\tCalculating emissions and traffic intensities (freight)")
 
     for tod in timeOfDays:
         # Nu de tod-specifieke tripmatrix in tripMatrix variabele zetten
@@ -843,7 +830,7 @@ def run_model(cfg, root=None):
                         prevFreight[r],
                         linkDict) for j in destZones]
                     for r in range(cfg['N_MULTIROUTE'])]
-                        
+
                 if doHybridRoutes:
                     hybridRoutes = [
                         [get_route(
@@ -853,8 +840,7 @@ def run_model(cfg, root=None):
                         for r in range(cfg['N_MULTIROUTE'])]
 
                 # Schrijf de volumes op de links
-                for j in range(len(destZones)):
-                    destZone = destZones[j]
+                for j, destNone in enumerate(destZones):
                     nTrips = tripMatrix[destZoneIndex[j], 2:]
 
                     # Get route and part of route that is
@@ -985,9 +971,9 @@ def run_model(cfg, root=None):
                                     linkEmissionsArray[ls][tod][
                                         routeStad, et] += stadEmissions
                                     linkEmissionsArray[ls][tod][
-                                        routeBuitenweg, et] += buitenwegEmissions 
+                                        routeBuitenweg, et] += buitenwegEmissions
                                     linkEmissionsArray[ls][tod][
-                                        routeSnelweg, et] += snelwegEmissions 
+                                        routeSnelweg, et] += snelwegEmissions
 
                                     # Total CO2 of the trip
                                     if etDict[et] == 'CO2':
@@ -1027,9 +1013,9 @@ def run_model(cfg, root=None):
                                     linkEmissionsArray[ls][tod][
                                         hybridRouteStad, et] += stadEmissions
                                     linkEmissionsArray[ls][tod][
-                                        hybridRouteBuitenweg, et] += buitenwegEmissions 
+                                        hybridRouteBuitenweg, et] += buitenwegEmissions
                                     linkEmissionsArray[ls][tod][
-                                        hybridRouteSnelweg, et] += snelwegEmissions 
+                                        hybridRouteSnelweg, et] += snelwegEmissions
 
                                     # Total CO2 of the trip
                                     if etDict[et] == 'CO2':
@@ -1042,7 +1028,7 @@ def run_model(cfg, root=None):
                                 tripsCO2[currentTrips[trip, -1]] = 0.0
 
     del prevFreight
-    
+
     if doHybridRoutes:
         del prevFreightHybrid
 
@@ -1059,7 +1045,7 @@ def run_model(cfg, root=None):
             message = (
                 "\tRoute search " +
                 f"(vans - multirouting part {r+1})...")
-            log_file.write(message + "\n")
+            logger.debug(message)
 
             # The network with costs between nodes (vans)
             csgraphVan = lil_matrix((nNodes, nNodes))
@@ -1101,7 +1087,7 @@ def run_model(cfg, root=None):
             message = (
                 "\tRoute search " +
                 f"(vans - multirouting part {r+1})...")
-            log_file.write(message + "\n")
+            logger.debug(message)
 
             # The network with costs between nodes (vans)
             csgraphVan = lil_matrix((nNodes, nNodes))
@@ -1130,7 +1116,7 @@ def run_model(cfg, root=None):
                 message = (
                     "\tRoute search " +
                     f"(vans - hybrid combustion - multirouting part {r+1})...")
-                log_file.write(message + "\n")
+                logger.debug(message)
 
                 # The network with costs between nodes (vans)
                 csgraphVanHybrid = lil_matrix((nNodes, nNodes))
@@ -1171,7 +1157,7 @@ def run_model(cfg, root=None):
                 message = (
                     "\tRoute search " +
                     f"(vans - hybrid combustion - multirouting part {r+1})...")
-                log_file.write(message + "\n")
+                logger.debug(message)
 
                 # The network with costs between nodes (vans)
                 csgraphVanHybrid = lil_matrix((nNodes, nNodes))
@@ -1191,8 +1177,8 @@ def run_model(cfg, root=None):
         del csgraphVanHybrid
 
     # --------------- Emissions and intensities (parcel vans) -------------
-    log_file.write("\tCalculating emissions and traffic intensities (vans)\n")
-    log_file.write('\t\tParcels tours...\n')
+    logger.info("\tCalculating emissions and traffic intensities (vans)")
+    logger.info('\t\tParcels tours...')
     ls = 8  # Logistic segment: parcel deliveries
 
     for tod in timeOfDays:
@@ -1268,7 +1254,7 @@ def run_model(cfg, root=None):
                             vt = int(currentTrips[trip, 3])
                             ct = int(currentTrips[trip, 6])
                             capUt = currentTrips[trip, 4]
-                            
+
                             if ct == 3:
                                 tmpRoute = hybridRoute
                             else:
@@ -1377,7 +1363,7 @@ def run_model(cfg, root=None):
                                 parcelTripsCO2[currentTrips[trip, -1]] = 0
 
     # ------------ Emissions and intensities (serv/constr vans) -----------
-    log_file.write('\t\tVan trips (service/construction)...\n')
+    logger.info('\t\tVan trips (service/construction)...')
 
     for i in range(nOrigSelection):
         origZone = origSelection[i]
@@ -1391,7 +1377,7 @@ def run_model(cfg, root=None):
                 prevVan[r],
                 linkDict) for j in destZones]
             for r in range(cfg['N_MULTIROUTE'])]
-            
+
         if doHybridRoutes:
             hybridRoutes = [
                 [get_route(
@@ -1401,9 +1387,7 @@ def run_model(cfg, root=None):
                 for r in range(cfg['N_MULTIROUTE'])]
 
         # Van: Service segment
-        for j in range(len(destZones)):
-            destZone = destZones[j]
-
+        for j, destZone in enumerate(destZones):
             tripIsZEZ = False
             if cfg['LABEL'] == 'UCC':
                 tripIsZEZ = ((i in ZEZzones) or (j in ZEZzones))
@@ -1534,7 +1518,7 @@ def run_model(cfg, root=None):
 
     # Make some space available on the RAM
     del prevVan, vanTripsService, vanTripsConstruction
-    
+
     if doHybridRoutes:
         del prevVanHybrid
 
@@ -1602,7 +1586,7 @@ def run_model(cfg, root=None):
             linkVanEmissionsArray[1][:, et] /
             emissionDivFac[et])
 
-    log_file.write('Writing link intensities to CSV...' + '\n')
+    logger.info('Writing link intensities to CSV...')
 
     MRDHlinks['A'] = [nodeDict[x] for x in MRDHlinks['A']]
     MRDHlinks['B'] = [nodeDict[x] for x in MRDHlinks['B']]
@@ -1622,7 +1606,7 @@ def run_model(cfg, root=None):
     MRDHlinksIntensities.to_csv(filename, index=False)
 
     if doSelectedLink:
-        log_file.write('Writing selected link analysis to CSV...' + '\n')
+        logger.info('Writing selected link analysis to CSV...')
 
         selectedLinkTripsArray = pd.DataFrame(
             selectedLinkTripsArray,
@@ -1646,7 +1630,7 @@ def run_model(cfg, root=None):
     # -------------------- Enriching tours and shipments ------------------
 
     try:
-        log_file.write("Writing emissions into Tours and ParcelSchedule...\n")
+        logger.info("Writing emissions into Tours and ParcelSchedule...")
         toursPath_w = join(outdir, 'Tours_', label, '_Emission.csv')
         parcelToursPath_w = join(outdir, 'ParcelSchedule_', label, '_Emission.csv')
         shipmentsPath_w = join(outdir, 'Shipments_AfterScheduling_', label, '_Emission.csv')
@@ -1654,7 +1638,7 @@ def run_model(cfg, root=None):
 
         parcelToursPath_r = join('ParcelSchedule_', label, '.csv')
         shipmentsPath_r = join('Shipments_AfterScheduling_', label, '.csv')
-      
+
         tours = pd.read_csv(toursPath_r)
         tours['CO2'] = [tripsCO2[i] for i in tours.index]
         tours.to_csv(toursPath_w, index=False)
@@ -1663,8 +1647,7 @@ def run_model(cfg, root=None):
         parcelTours['CO2'] = [parcelTripsCO2[i] for i in parcelTours.index]
         parcelTours.to_csv(parcelToursPath_w, index=False)
 
-        print("Writing emissions into Shipments...")
-        log_file.write("Writing emissions into Shipments...\n")
+        logger.info("Writing emissions into Shipments...")
 
         # Calculate emissions at the tour level instead of trip level
         tours['TOUR_ID'] = [
@@ -1700,7 +1683,7 @@ def run_model(cfg, root=None):
         shipIDs.append(currentShipIDs.copy())
 
         # Network distance of each shipment
-        skimDistance = read_mtx(varDict['SKIMDISTANCE'])
+        skimDistance = read_mtx(cfg['SKIMDISTANCE'])
         shipDist = skimDistance[
             (shipments['ORIG'] - 1) * nZones + (shipments['DEST'] - 1)]
 
@@ -1729,21 +1712,16 @@ def run_model(cfg, root=None):
         message = (
             "Writing emissions into " +
             "Tours/ParcelSchedule/Shipments failed!")
-        print(message)
-        log_file.write(message + '\n')
+        logger.error(message)
 
         try:
-            import sys
-            print(sys.exc_info()[0])
-            log_file.write(str(sys.exc_info()[0]) + "\n")
-            import traceback
-            print(traceback.format_exc())
-            log_file.write(str(traceback.format_exc()) + "\n")
+            logger.error(sys.exc_info()[0])
+            logger.error(traceback.format_exc())
         except Exception:
             pass
 
     if exportShp:
-        log_file.write("Exporting network to .shp...\n")
+        logger.info("Exporting network to .shp...")
 
         # Set travel times of connectors at 0 for in the
         # output network shape
@@ -1817,23 +1795,13 @@ def run_model(cfg, root=None):
                 progress = round(i / nLinks * 100, 1)
                 print('\t' + str(progress) + '%', end='\r')
 
-                if root != '':
-                    root.progressBar['value'] = (
-                        95.0 +
-                        (100.0 - 95.0) * i / nLinks)
-
         w.close()
 
     # --------------------------- End of module ---------------------------
 
-    totaltime = round(time.time() - start_time, 2)
-    print('Finished. Run time: ' + str(totaltime) + ' seconds')
-    log_file.write("Total runtime: %s seconds\n" % (totaltime))
-    log_file.write(
-        "End simulation at: " +
-        datetime.datetime.now().strftime("%y-%m-%d %H:%M") + "\n")
-    log_file.close()
-
+    totaltime = round(time() - start_time, 2)
+    logger.info("Total runtime: %s seconds", totaltime)
+    logger.info("End simulation at: %s", datetime.now().strftime("%y-%m-%d %H:%M"))
 
 
 def get_prev(csgraph, nNodes, indices):

@@ -21,7 +21,7 @@ LOG_MSG_FMT = "%(asctime)s %(levelname)-8s %(name)s \
 %(filename)s#L%(lineno)d %(message)s"
 LOG_DT_FMT = "%Y-%m-%d %H:%M:%S"
 
-logger = logging.getLogger("parcelgen")
+logger = logging.getLogger("networkassignment")
 
 
 class RawDefaultsHelpFormatter(ArgumentDefaultsHelpFormatter, RawTextHelpFormatter):
@@ -77,14 +77,37 @@ def main():
     parser.add_argument('SKIMTIME', type=strfile, help='The path of the time skim matrix (mtx)')
     parser.add_argument('SKIMDISTANCE', type=strfile,
                         help='The path of the distance skim matrix (mtx)')
-    parser.add_argument('ZONES', type=strfile, help='The path of the area shape file (shp)')
+    parser.add_argument('NODES', type=strfile,
+                        help='The path of the nodes file (zip)')
+    parser.add_argument('ZONES', type=strfile, help='The path of the zones shape file (zip)')
     parser.add_argument('SEGS', type=strfile, help='The path of the socioeconomics data file (csv)')
-    parser.add_argument('PARCELNODES', type=strfile,
-                        help='The path of the parcel nodes file (shp)')
-    parser.add_argument('CEP_SHARES', type=strfile,
-                        help='The path of the courier market shares file (csv)')
-    parser.add_argument('EXTERNAL_ZONES', type=strfile,
-                        help='The path of the external nodes file (csv)')
+    parser.add_argument('LINKS', type=strfile, help='The path of the links shape file (zip)')
+    parser.add_argument('SUP_COORDINATES_ID', type=strfile,
+                        help='The path of the sup coordinates file (csv)')
+    parser.add_argument('COST_VEHTYPE', type=strfile,
+                        help='The path of the Cost_VehType_2016 file (csv)')
+    parser.add_argument('COST_SOURCING', type=strfile,
+                        help='The path of the Cost_Sourcing_2016 file (csv)')
+    parser.add_argument('VEHICLE_CAPACITY', type=strfile,
+                        help='The path of the CarryingCapacity file (csv)')
+    parser.add_argument('EMISSIONFACS_BUITENWEG_LEEG', type=strfile,
+                        help='The path of the EmissieFactoren_BUITENWEG_LEEG file (csv)')
+    parser.add_argument('EMISSIONFACS_BUITENWEG_VOL', type=strfile,
+                        help='The path of the EmissieFactoren_BUITENWEG_VOL file (csv)')
+    parser.add_argument('EMISSIONFACS_SNELWEG_LEEG', type=strfile,
+                        help='The path of the EmissieFactoren_SNELWEG_LEEG file (csv)')
+    parser.add_argument('EMISSIONFACS_SNELWEG_VOL', type=strfile,
+                        help='The path of the EmissieFactoren_SNELWEG_VOL file (csv)')
+    parser.add_argument('EMISSIONFACS_STAD_LEEG', type=strfile,
+                        help='The path of the EmissieFactoren_STAD_LEEG file (csv)')
+    parser.add_argument('EMISSIONFACS_STAD_VOL', type=strfile,
+                        help='The path of the EmissieFactoren_STAD_VOL file (csv)')
+    parser.add_argument('LOGISTIC_SEGMENT', type=strfile,
+                        help='The path of the logistic_segment file (txt)')
+    parser.add_argument('VEHICLE_TYPE', type=strfile,
+                        help='The path of the vehicle_type file (txt)')
+    parser.add_argument('EMISSION_TYPE', type=strfile,
+                        help='The path of the emission_type file (txt)')
     parser.add_argument('OUTDIR', type=strdir, help='The output directory')
 
     parser.add_argument('-v', '--verbosity', action='count', default=0,
@@ -93,8 +116,6 @@ def main():
                         help='Stores logs to file')
     parser.add_argument('-e', '--env', type=str, default=None,
                         help='Defines the path of the environment file')
-    parser.add_argument('--gui', action='store_true', default=False,
-                        help='Displays the graphical user interface')
 
     args = parser.parse_args(argv[1:])
 
@@ -121,7 +142,7 @@ def main():
 
     # setting of the configuration
     config = vars(args).copy()
-    _ = [config.pop(key) for key in ("verbosity", "flog", "env", "gui")]
+    _ = [config.pop(key) for key in ("verbosity", "flog", "env")]
     config_env = {}
     if args.env:
         if isfile(abspath(args.env)):
@@ -137,14 +158,6 @@ def main():
 
     for key, value in config.items():
         print(f'{key:<30s}: {value}')
-
-    if args.gui:
-        from .ui import ParcelGenUI
-
-        root = ParcelGenUI(config)
-        print(root.return_info)
-
-        return
 
     run_model(config)
 
