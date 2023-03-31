@@ -74,14 +74,18 @@ def main():
     parser = ArgumentParser(description=__doc__,
                             formatter_class=RawDefaultsHelpFormatter)
 
-    parser.add_argument('SKIMTIME', type=strfile, help='The path of the time skim matrix (mtx)')
+    parser.add_argument('SKIMTIME', type=strfile,
+                        help='The path of the time skim matrix (mtx)')
     parser.add_argument('SKIMDISTANCE', type=strfile,
                         help='The path of the distance skim matrix (mtx)')
     parser.add_argument('NODES', type=strfile,
                         help='The path of the nodes file (zip)')
-    parser.add_argument('ZONES', type=strfile, help='The path of the zones shape file (zip)')
-    parser.add_argument('SEGS', type=strfile, help='The path of the socioeconomics data file (csv)')
-    parser.add_argument('LINKS', type=strfile, help='The path of the links shape file (zip)')
+    parser.add_argument('ZONES', type=strfile,
+                        help='The path of the zones shape file (zip)')
+    parser.add_argument('SEGS', type=strfile,
+                        help='The path of the socioeconomics data file (csv)')
+    parser.add_argument('LINKS', type=strfile,
+                        help='The path of the links shape file (zip)')
     parser.add_argument('SUP_COORDINATES_ID', type=strfile,
                         help='The path of the sup coordinates file (csv)')
     parser.add_argument('COST_VEHTYPE', type=strfile,
@@ -108,6 +112,20 @@ def main():
                         help='The path of the vehicle_type file (txt)')
     parser.add_argument('EMISSION_TYPE', type=strfile,
                         help='The path of the emission_type file (txt)')
+    parser.add_argument('TRIPS_VAN_SERVICE', type=strfile,
+                        help='The path of the TripsVanService file (mtx)')
+    parser.add_argument('TRIPS_VAN_CONSTRUCTION', type=strfile,
+                        help='The path of the TripsVanConstruction file (mtx)')
+    parser.add_argument('TOURS', type=strfile,
+                        help='The path of the Tours file (csv)')
+    parser.add_argument('PARCEL_SCHEDULE', type=strfile,
+                        help='The path of the ParcelSchedule file (csv)')
+    parser.add_argument('TRIP_MATRIX', type=strfile,
+                        help='The path of the tripmatrix file (zip)')
+    parser.add_argument('TRIP_MATRIX_PARCELS', type=strfile,
+                        help='The path of the tripmatrix_parcels file (zip)')
+    parser.add_argument('SHIPMENTS', type=strfile,
+                        help='The path of the Shipments_AfterScheduling file (csv)')
     parser.add_argument('OUTDIR', type=strdir, help='The output directory')
 
     parser.add_argument('-v', '--verbosity', action='count', default=0,

@@ -4,11 +4,12 @@
 import sys
 import traceback
 from time import time
-from datetime import datetime
-from os.path import join
+from os.path import join, split, splitext
+from os import remove
 import multiprocessing as mp
 import functools
 from logging import getLogger
+from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
@@ -32,15 +33,12 @@ def run_model(cfg):
 
     start_time = time()
 
-    outdir = cfg['OUTDIR']
-    label  = cfg['LABEL']
-
     doShiftVanToElectric = cfg['SHIFT_VAN_TO_COMB1'] != ''
 
     exportShp = True
     addZezToLinks = False
 
-    logger.info("Start simulation at: %s", datetime.now().strftime("%y-%m-%d %H:%M"))
+    logger.info("Simulation starting...")
 
     if cfg['N_MULTIROUTE'] == '':
         cfg['N_MULTIROUTE'] = 1
@@ -81,10 +79,7 @@ def run_model(cfg):
         try:
             selectedLinks = [int(x) for x in selectedLinks]
         except ValueError:
-            message = (
-                'Warning! ' +
-                'Could not convert SELECTED_LINKS to integers!')
-            logger.error(message)
+            logger.warning("Could not convert SELECTED_LINKS to integers!")
 
     # Number of CPUs over which the route search procedure is parallelized
     maxCPU = 16
@@ -93,23 +88,14 @@ def run_model(cfg):
             nCPU = int(cfg['N_CPU'])
             if nCPU > mp.cpu_count():
                 nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
-                message = (
-                    'N_CPU parameter too high. Only ' +
-                    str(mp.cpu_count()) +
-                    ' CPUs available. Hence defaulting to ' +
-                    str(nCPU) +
-                    'CPUs.')
-                logger.warning(message)
+                logger.warning("N_CPU parameter too high. Only %s CPUs available. Defaulting to %s",
+                               mp.cpu_count(), str(nCPU))
             if nCPU < 1:
                 nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
         except ValueError:
             nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
-            message = (
-                'Could not convert N_CPU parameter to an integer.' +
-                ' Hence defaulting to ' +
-                str(nCPU) +
-                'CPUs.')
-            logger.warning(message)
+            logger.warning("Could not convert N_CPU parameter to an integer. Defaulting to %s",
+                           str(nCPU))
     else:
         nCPU = max(1, min(mp.cpu_count() - 1, maxCPU))
     nCPU = 1  # To avoid issues in multithreading
@@ -275,12 +261,10 @@ def run_model(cfg):
         MRDHlinks.loc[
             MRDHlinks[cfg['IMPEDANCE_SPEED_FREIGHT']] <= 0,
             cfg['IMPEDANCE_SPEED_FREIGHT']] = 50
-        message = (
-            '\tWarning: ' +
-            str(nSpeedZero) + ' links found with freight speed (' +
-            cfg['IMPEDANCE_SPEED_FREIGHT'] + ') <= 0 km/h. ' +
-            'Adjusting those to 50 km/h.')
-        logger.warning(message)
+        logger.warning(
+            "%s links found with freight speed (%s) <= 0 km/h. Adjusting those to 50 km/h.",
+            nSpeedZero, cfg['IMPEDANCE_SPEED_FREIGHT'],
+        )
 
      # Assume a speed of 50 km/h if there are links with van speed <= 0
     nSpeedZero = np.sum(MRDHlinks[cfg['IMPEDANCE_SPEED_VAN']] <= 0)
@@ -288,12 +272,10 @@ def run_model(cfg):
         MRDHlinks.loc[
             MRDHlinks[cfg['IMPEDANCE_SPEED_VAN']] <= 0,
             cfg['IMPEDANCE_SPEED_VAN']] = 50
-        message = (
-            '\tWarning: ' +
-            str(nSpeedZero) + ' links found with van speed (' +
-            cfg['IMPEDANCE_SPEED_VAN'] + ') <= 0 km/h. ' +
-            'Adjusting those to 50 km/h.')
-        logger.warning(message)
+        logger.warning(
+            "%s links found with van speed (%s) <= 0 km/h. Adjusting those to 50 km/h.",
+            nSpeedZero, cfg['IMPEDANCE_SPEED_VAN'],
+        )
 
     # Travel times and travel costs
     MRDHlinks['T0_FREIGHT'] = (
@@ -314,7 +296,7 @@ def run_model(cfg):
 
     # Set connector travel times high so these are not chosen
     # other than for entering/leaving network
-    isConnector = (MRDHlinks['WEGTYPE'] == 'voedingslink')
+    isConnector = MRDHlinks['WEGTYPE'] == 'voedingslink'
     MRDHlinks.loc[isConnector, ['COST_FREIGHT', 'COST_VAN']] = 10000
 
     # Set travel times for forbidden-for-freight-links high
@@ -372,8 +354,8 @@ def run_model(cfg):
         columns=intensityFields)
 
     # Van trips for service and construction purposes
-    vanTripsService = read_mtx(cfg['TripsVanService.mtx'])
-    vanTripsConstruction = read_mtx(cfg['TripsVanConstruction.mtx'])
+    vanTripsService = read_mtx(cfg['TRIPS_VAN_SERVICE'])
+    vanTripsConstruction = read_mtx(cfg['TRIPS_VAN_CONSTRUCTION'])
 
     # ODs with very low number of trips: set to 0 to reduce
     # memory burden of searches routes for all these ODs
@@ -440,21 +422,10 @@ def run_model(cfg):
 
     # To vehicle type in the emission factors (value)
     # does each of the TFS vehicle types (key) belong
-    vtDict = {
-        0: 2,
-        1: 3,
-        2: 5,
-        3: 4,
-        4: 6,
-        5: 7,
-        6: 9,
-        7: 0,
-        8: 0,
-        9: 0}
+    vtDict = {0: 2, 1: 3, 2: 5, 3: 4, 4: 6, 5: 7, 6: 9, 7: 0, 8: 0, 9: 0}
 
     # Import trips csv
-    allTrips = pd.read_csv(
-        cfg['Tours_' + cfg['LABELShipmentTour'] + '.csv'])
+    allTrips = pd.read_csv(cfg['TOURS'])
     allTrips['ORIG'] = [invZoneDict[x] for x in allTrips['ORIG']]
     allTrips['DEST'] = [invZoneDict[x] for x in allTrips['DEST']]
     allTrips.loc[allTrips['TRIP_DEPTIME'] >= 24, 'TRIP_DEPTIME'] -= 24
@@ -466,8 +437,7 @@ def run_model(cfg):
     allTrips['INDEX'] = allTrips.index
 
     # Import parcel schedule csv
-    allParcelTrips = pd.read_csv(
-        cfg['ParcelSchedule_' + cfg['LABEL'] + '.csv']) #  varDict['ParcelMod_Tours']
+    allParcelTrips = pd.read_csv(cfg['PARCEL_SCHEDULE'])
     allParcelTrips = allParcelTrips.rename(
         columns={
             'O_zone': 'ORIG',
@@ -558,11 +528,15 @@ def run_model(cfg):
     newColOrder.insert(0, 'ORIG')
 
     # Trip matrices per time-of-day
+    dname, fname = split(cfg['TRIP_MATRIX'])
+    fname_no_x = splitext(fname)[0]
+    with ZipFile(cfg['TRIP_MATRIX'], 'r') as f_zip:
+        f_zip.extractall(path=dname)
+
     tripMatricesTOD = []
     for tod in range(nHours):
-        tripMatricesTOD.append(pd.read_csv(
-            cfg['tripmatrix_'+ cfg['LABELShipmentTour'] + '_TOD' + str(tod) + '.txt'],
-            sep='\t'))
+        fn_tm_tod = join(dname, fname_no_x + f'{tod}.txt')
+        tripMatricesTOD.append(pd.read_csv(fn_tm_tod, sep='\t'))
         tripMatricesTOD[tod]['ORIG'] = [
             invZoneDict[x] for x in tripMatricesTOD[tod]['ORIG'].values]
         tripMatricesTOD[tod]['DEST'] = [
@@ -572,18 +546,24 @@ def run_model(cfg):
         tripMatricesTOD[tod]['N_VAN_C'] = 0
         tripMatricesTOD[tod] = tripMatricesTOD[tod][newColOrder]
         tripMatricesTOD[tod] = np.array(tripMatricesTOD[tod])
+        remove(fn_tm_tod)
 
     # Parcels trip matrices per time-of-day
+    dname, fname = split(cfg['TRIP_MATRIX_PARCELS'])
+    fname_no_x = splitext(fname)[0]
+    with ZipFile(cfg['TRIP_MATRIX_PARCELS'], 'r') as f_zip:
+        f_zip.extractall(path=dname)
+
     tripMatricesParcelsTOD = []
     for tod in range(nHours):
-        tripMatricesParcelsTOD.append(pd.read_csv(
-            cfg['tripmatrix_parcels_' + label + '_TOD' + str(tod) + '.txt'],
-            sep='\t'))
+        fn_tmp_tod = join(dname, fname_no_x + f'{tod}.txt')
+        tripMatricesParcelsTOD.append(pd.read_csv(fn_tmp_tod, sep='\t'))
         tripMatricesParcelsTOD[tod]['ORIG'] = [
             invZoneDict[x] for x in tripMatricesParcelsTOD[tod]['ORIG'].values]
         tripMatricesParcelsTOD[tod]['DEST'] = [
             invZoneDict[x] for x in tripMatricesParcelsTOD[tod]['DEST'].values]
         tripMatricesParcelsTOD[tod] = np.array(tripMatricesParcelsTOD[tod])
+        remove(fn_tmp_tod)
 
     # For which origin zones do we need to find the routes
     origSelection = np.arange(nZones)
@@ -636,11 +616,7 @@ def run_model(cfg):
             for cpu in range(nCPU)]
 
         for r in range(cfg['N_MULTIROUTE']):
-
-            message = (
-                "\tRoute search " +
-                f"(freight - multirouting part {r+1})...")
-            logger.debug(message)
+            logger.debug("\tRoute search (freight - multirouting part %s)", r+1)
 
             # The network with costs between nodes (freight)
             csgraphFreight = lil_matrix((nNodes, nNodes))
@@ -680,10 +656,7 @@ def run_model(cfg):
 
     else:
         for r in range(cfg['N_MULTIROUTE']):
-            message = (
-                "\tRoute search " +
-                f"(freight - multirouting part {r+1})...")
-            logger.debug(message)
+            logger.info("\tRoute search (freight - multirouting part %s)...", r+1)
 
             # The network with costs between nodes (freight)
             csgraphFreight = lil_matrix((nNodes, nNodes))
@@ -710,12 +683,11 @@ def run_model(cfg):
 
         # Route search freight (hybrid combustion)
         if nCPU > 1:
-
             for r in range(cfg['N_MULTIROUTE']):
-                message = (
-                    "\tRoute search " +
-                    f"(freight - hybrid combustion - multirouting part {r+1})...")
-                logger.debug(message)
+                logger.debug(
+                    "\tRoute search (freight - hybrid combustion - multirouting part %s)",
+                    r+1
+                )
 
                 # The network with costs between nodes (freight)
                 csgraphFreightHybrid = lil_matrix((nNodes, nNodes))
@@ -748,17 +720,17 @@ def run_model(cfg):
                     dtype=int))
                 for cpu in range(nCPU):
                     for i in range(len(indicesPerCPU[cpu][0])):
-                        prevFreightHybrid[r][origSelectionPerCPU[cpu][i], :] = prevFreightHybridPerCPU[cpu][i, :]
+                        prevFreightHybrid[r][origSelectionPerCPU[cpu][i], :] = \
+                            prevFreightHybridPerCPU[cpu][i, :]
 
                 # Make some space available on the RAM
                 del prevFreightHybridPerCPU
-
         else:
             for r in range(cfg['N_MULTIROUTE']):
-                message = (
-                    "\tRoute search " +
-                    f"(freight - hybrid combustion - multirouting part {r+1})...")
-                logger.debug(message)
+                logger.debug(
+                    "\tRoute search (freight - hybrid combustion - multirouting part %s)",
+                    r+1
+                )
 
                 # The network with costs between nodes (freight)
                 csgraphFreightHybrid = lil_matrix((nNodes, nNodes))
@@ -794,14 +766,8 @@ def run_model(cfg):
             (allTrips['TRIP_DEPTIME'] >= tod) &
             (allTrips['TRIP_DEPTIME'] < (tod + 1)))
         trips = allTrips.loc[isCurrentTOD, :]
-        trips = np.array(trips[[
-            'CARRIER_ID',
-            'ORIG', 'DEST',
-            'VEHTYPE',
-            'CAP_UT',
-            'LS',
-            'COMBTYPE',
-            'INDEX']])
+        trips = np.array(trips[['CARRIER_ID', 'ORIG', 'DEST', 'VEHTYPE',
+                                'CAP_UT', 'LS', 'COMBTYPE', 'INDEX']])
 
         # At which indices are trips per orig-dest-ls found
         whereODL = {}
@@ -840,7 +806,7 @@ def run_model(cfg):
                         for r in range(cfg['N_MULTIROUTE'])]
 
                 # Schrijf de volumes op de links
-                for j, destNone in enumerate(destZones):
+                for j, destZone in enumerate(destZones):
                     nTrips = tripMatrix[destZoneIndex[j], 2:]
 
                     # Get route and part of route that is
@@ -906,16 +872,12 @@ def run_model(cfg):
 
                             # Select which of the calculated routes
                             # to use for current trip
-                            whichMultiRoute = np.random.randint(
-                                cfg['N_MULTIROUTE'])
+                            whichMultiRoute = np.random.randint(cfg['N_MULTIROUTE'])
 
                             route = routes[whichMultiRoute][j]
-                            routeStad = routesStad[
-                                whichMultiRoute]
-                            routeBuitenweg = routesBuitenweg[
-                                whichMultiRoute]
-                            routeSnelweg = routesSnelweg[
-                                whichMultiRoute]
+                            routeStad = routesStad[whichMultiRoute]
+                            routeBuitenweg = routesBuitenweg[whichMultiRoute]
+                            routeSnelweg = routesSnelweg[whichMultiRoute]
 
                             ZEZstad = ZEZSstad[whichMultiRoute]
                             ZEZbuitenweg = ZEZSbuitenweg[whichMultiRoute]
@@ -923,12 +885,9 @@ def run_model(cfg):
 
                             if doHybridRoutes:
                                 hybridRoute = hybridRoutes[whichMultiRoute][j]
-                                hybridRouteStad = hybridRoutesStad[
-                                    whichMultiRoute]
-                                hybridRouteBuitenweg = hybridRoutesBuitenweg[
-                                    whichMultiRoute]
-                                hybridRouteSnelweg = hybridRoutesSnelweg[
-                                    whichMultiRoute]
+                                hybridRouteStad = hybridRoutesStad[whichMultiRoute]
+                                hybridRouteBuitenweg = hybridRoutesBuitenweg[whichMultiRoute]
+                                hybridRouteSnelweg = hybridRoutesSnelweg[whichMultiRoute]
 
                                 hybridZEZstad = hybridZEZSstad[whichMultiRoute]
                                 hybridZEZbuitenweg = hybridZEZSbuitenweg[whichMultiRoute]
@@ -1041,11 +1000,7 @@ def run_model(cfg):
     # Route search vans
     if nCPU > 1:
         for r in range(cfg['N_MULTIROUTE']):
-
-            message = (
-                "\tRoute search " +
-                f"(vans - multirouting part {r+1})...")
-            logger.debug(message)
+            logger.info("\tRoute search (vans - multirouting part %s)...", r+1)
 
             # The network with costs between nodes (vans)
             csgraphVan = lil_matrix((nNodes, nNodes))
@@ -1083,11 +1038,7 @@ def run_model(cfg):
 
     else:
         for r in range(cfg['N_MULTIROUTE']):
-
-            message = (
-                "\tRoute search " +
-                f"(vans - multirouting part {r+1})...")
-            logger.debug(message)
+            logger.info("\tRoute search (vans - multirouting part %s)", r+1)
 
             # The network with costs between nodes (vans)
             csgraphVan = lil_matrix((nNodes, nNodes))
@@ -1112,11 +1063,9 @@ def run_model(cfg):
         # Route search vans
         if nCPU > 1:
             for r in range(cfg['N_MULTIROUTE']):
-
-                message = (
-                    "\tRoute search " +
-                    f"(vans - hybrid combustion - multirouting part {r+1})...")
-                logger.debug(message)
+                logger.debug(
+                    "\tRoute search (vans - hybrid combustion - multirouting part %s)", r+1
+                )
 
                 # The network with costs between nodes (vans)
                 csgraphVanHybrid = lil_matrix((nNodes, nNodes))
@@ -1147,17 +1096,17 @@ def run_model(cfg):
                 prevVanHybrid.append(np.zeros((nOrigSelection, nNodes), dtype=int))
                 for cpu in range(nCPU):
                     for i in range(len(indicesPerCPU[cpu][0])):
-                        prevVanHybrid[r][origSelectionPerCPU[cpu][i], :] = prevVanHybridPerCPU[cpu][i, :]
+                        prevVanHybrid[r][origSelectionPerCPU[cpu][i], :] = \
+                            prevVanHybridPerCPU[cpu][i, :]
 
                 # Make some space available on the RAM
                 del prevVanHybridPerCPU
         else:
             for r in range(cfg['N_MULTIROUTE']):
-
-                message = (
-                    "\tRoute search " +
-                    f"(vans - hybrid combustion - multirouting part {r+1})...")
-                logger.debug(message)
+                logger.debug(
+                    "\tRoute search (vans - hybrid combustion - multirouting part %s)...",
+                    r+1
+                )
 
                 # The network with costs between nodes (vans)
                 csgraphVanHybrid = lil_matrix((nNodes, nNodes))
@@ -1193,11 +1142,8 @@ def run_model(cfg):
             (allParcelTrips['TRIP_DEPTIME'] < (tod + 1)), :]
 
         if len(trips) > 0:
-            trips = np.array(trips[[
-                'Depot_ID',
-                'ORIG', 'DEST',
-                'VEHTYPE', 'CAP_UT',
-                'LS', 'COMBTYPE', 'INDEX']])
+            trips = np.array(trips[['Depot_ID', 'ORIG', 'DEST', 'VEHTYPE',
+                                    'CAP_UT', 'LS', 'COMBTYPE', 'INDEX']])
 
             for i in range(nOrigSelection):
                 origZone = origSelection[i]
@@ -1602,8 +1548,10 @@ def run_model(cfg):
         cols.append(col)
 
     MRDHlinksIntensities = MRDHlinksIntensities[cols]
-    filename = join(outdir, 'links_loaded_', label, '_intensities.csv')
-    MRDHlinksIntensities.to_csv(filename, index=False)
+    MRDHlinksIntensities.to_csv(
+        join(cfg['OUTDIR'], 'links_loaded_intensities.csv'),
+        index=False
+    )
 
     if doSelectedLink:
         logger.info('Writing selected link analysis to CSV...')
@@ -1621,7 +1569,11 @@ def run_model(cfg):
             cols.append('N_' + str(selectedLinks[link]))
 
         selectedLinkTripsArray = selectedLinkTripsArray[cols]
-        selectedLinkTripsArray.to_csv(join(outdir, 'SelectedLinks.csv'), sep=',', index=False)
+        selectedLinkTripsArray.to_csv(
+            join(cfg['OUTDIR'], 'SelectedLinks.csv'),
+            sep=',',
+            index=False
+        )
 
     # Make some space available on the RAM
     del linkTripsArray, linkEmissionsArray
@@ -1630,25 +1582,32 @@ def run_model(cfg):
     # -------------------- Enriching tours and shipments ------------------
 
     try:
-        logger.info("Writing emissions into Tours and ParcelSchedule...")
-        toursPath_w = join(outdir, 'Tours_', label, '_Emission.csv')
-        parcelToursPath_w = join(outdir, 'ParcelSchedule_', label, '_Emission.csv')
-        shipmentsPath_w = join(outdir, 'Shipments_AfterScheduling_', label, '_Emission.csv')
-        toursPath_r =  join('Tours_', label, '.csv')
+        logger.info("Writing emissions into Tours...")
 
-        parcelToursPath_r = join('ParcelSchedule_', label, '.csv')
-        shipmentsPath_r = join('Shipments_AfterScheduling_', label, '.csv')
-
-        tours = pd.read_csv(toursPath_r)
+        tours = pd.read_csv(cfg['TOURS'])
         tours['CO2'] = [tripsCO2[i] for i in tours.index]
-        tours.to_csv(toursPath_w, index=False)
+        tours.to_csv(
+            join(cfg['OUTDIR'], 'Tours_Emission.csv'),
+            index=False
+        )
+    except KeyError as exc:
+        logger.error("Writing emissions into Tours failed | %s: %s\n%s",
+                     sys.exc_info()[0], exc, traceback.format_exc())
 
-        parcelTours = pd.read_csv(parcelToursPath_r)
+    try:
+        logger.info("Writing emissions into ParcelSchedule...")
+        parcelTours = pd.read_csv(cfg['PARCEL_SCHEDULE'])
         parcelTours['CO2'] = [parcelTripsCO2[i] for i in parcelTours.index]
-        parcelTours.to_csv(parcelToursPath_w, index=False)
+        parcelTours.to_csv(
+            cfg['OUTDIR'], 'ParcelSchedule_Emission.csv',
+            index=False
+        )
+    except KeyError as exc:
+        logger.error("Writing emissions into ParcelSchedule failed | %s: %s\n%s",
+                     sys.exc_info()[0], exc, traceback.format_exc())
 
+    try:
         logger.info("Writing emissions into Shipments...")
-
         # Calculate emissions at the tour level instead of trip level
         tours['TOUR_ID'] = [
             str(tours.at[i, 'CARRIER_ID']) + '_' + str(tours.at[i, 'TOUR_ID'])
@@ -1664,7 +1623,7 @@ def run_model(cfg):
         toursCO2 = np.array(toursCO2['CO2'])
 
         # Read the shipments
-        shipments = pd.read_csv(shipmentsPath_r)
+        shipments = pd.read_csv(cfg['SHIPMENTS'])
         shipments['ORIG'] = [invZoneDict[x] for x in shipments['ORIG']]
         shipments['DEST'] = [invZoneDict[x] for x in shipments['DEST']]
         shipments = shipments.sort_values('TOUR_ID')
@@ -1706,19 +1665,13 @@ def run_model(cfg):
         shipments.index = np.arange(len(shipments))
         shipments['ORIG'] = [zoneDict[x] for x in shipments['ORIG']]
         shipments['DEST'] = [zoneDict[x] for x in shipments['DEST']]
-        shipments.to_csv(shipmentsPath_w, index=False)
-
-    except Exception:
-        message = (
-            "Writing emissions into " +
-            "Tours/ParcelSchedule/Shipments failed!")
-        logger.error(message)
-
-        try:
-            logger.error(sys.exc_info()[0])
-            logger.error(traceback.format_exc())
-        except Exception:
-            pass
+        shipments.to_csv(
+            join(cfg['OUTDIR'], 'Shipments_AfterScheduling_Emission.csv'),
+            index=False
+        )
+    except KeyError as exc:
+        logger.error("Writing emissions into Shipments failed! | %s: %s\n%s",
+                     sys.exc_info()[0], exc, traceback.format_exc())
 
     if exportShp:
         logger.info("Exporting network to .shp...")
@@ -1741,14 +1694,12 @@ def run_model(cfg):
 
         MRDHlinks = MRDHlinks.drop(columns='NAME')
 
-        loadedLinksPath = join(outdir, 'links_loaded_', label, '.shp')
-
         # Initialize shapefile fields
-        w = shp.Writer(loadedLinksPath)
+        w = shp.Writer(join(cfg['OUTDIR'], 'links_loaded_.shp'))
         w.field('LINKNR',     'N', size=8, decimal=0)
         w.field('A',          'N', size=9, decimal=0)
         w.field('B',          'N', size=9, decimal=0)
-        w.field('LENGTH'      'N', size=7, decimal=3)
+        w.field('LENGTH',     'N', size=7, decimal=3)
         w.field('LANES',      'N', size=6, decimal=0)
         w.field('CAPACITY',   'N', size=6, decimal=0)
         w.field('WEGTYPE',    'C')
@@ -1801,7 +1752,7 @@ def run_model(cfg):
 
     totaltime = round(time() - start_time, 2)
     logger.info("Total runtime: %s seconds", totaltime)
-    logger.info("End simulation at: %s", datetime.now().strftime("%y-%m-%d %H:%M"))
+    logger.info("Simulation completed")
 
 
 def get_prev(csgraph, nNodes, indices):
