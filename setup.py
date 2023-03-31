@@ -18,12 +18,12 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 def get_version():
     """Scan __init__ file for __version__ and retrieve."""
 
-    finit = join(here, 'src', 'parcelgen', '__init__.py')
+    finit = join(here, 'src', 'networkassignment', '__init__.py')
     with open(finit, 'r', encoding="utf-8") as fpnt:
         for line in fpnt:
             if line.startswith('__version__'):
                 return literal_eval(line.split('=', 1)[1].strip())
-    return '0.0.1-alpha'
+    return '0.0.0'
 
 setup(
     name='networkassignment',
@@ -37,14 +37,17 @@ setup(
     packages=find_packages(where='src'),
     python_requires='>=3.6, <4',
     install_requires=[
-        'networkx',
+        'python-dotenv',
+        'numpy',
         'pandas',
+        'scipy',
         'pyshp',
-        'python-dotenv'
+        'shapely',
+        'numba'
     ],
     entry_points={
         'console_scripts': [
-            'network-assignment=parcelgen.__main__:main'
+            'network-assignment=networkassignment.__main__:main'
         ],
     },
     project_urls={
