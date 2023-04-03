@@ -8,10 +8,9 @@ from json import loads, JSONDecodeError
 BOOL_VALUES = ('true', 't', 'on', '1', 'false', 'f', 'off', '0', "")
 BOOL_TRUE_VALUES = ('true', 't', 'on', '1')
 
-PARAMS_STR = ["LABEL", "LABELShipmentTour", "SELECTED_LINKS", "N_MULTIROUTE", "SHIFT_VAN_TO_COMB1",
-              "IMPEDANCE_SPEED_FREIGHT", "IMPEDANCE_SPEED_VAN"]
+PARAMS_STR = ["LABEL", "SELECTED_LINKS", "IMPEDANCE_SPEED_FREIGHT", "IMPEDANCE_SPEED_VAN"]
 PARAMS_BOOL = []
-PARAMS_NUM = ["N_CPU"]
+PARAMS_NUM = ["N_CPU", "N_MULTIROUTE", "SHIFT_VAN_TO_COMB1"]
 PARAMS_LIST_STR = []
 PARAMS_LIST_BOOL = []
 PARAMS_LIST_NUM = []
@@ -54,7 +53,7 @@ def parse_env_values(env):
         for key in PARAMS_BOOL:
             config_env[key] = to_bool(env[key])
         for key in PARAMS_NUM:
-            config_env[key] = float(env[key])
+            config_env[key] = float(env[key]) if env[key] != "" else ""
         for key in PARAMS_LIST_STR:
             config_env[key] = [] if env[key] == '' else env[key].split(',')
         for key in PARAMS_LIST_BOOL:

@@ -98,11 +98,9 @@ The user can then execute the model by running the executable.
 ```
 network-assignment -vvv \
     --env .env \
-    sample-data/input/skimTijd_new_REF.mtx \
     sample-data/input/skimAfstand_new_REF.mtx \
     sample-data/input/nodes_v5.zip \
     sample-data/input/Zones_v6.zip \
-    sample-data/input/SEGS2020.csv \
     sample-data/input/links_v5.zip \
     sample-data/input/SupCoordinatesID.csv \
     sample-data/input/Cost_VehType_2016.csv \
@@ -136,11 +134,9 @@ docker run --rm \
   -v $PWD/sample-data:/data \
   --env-file .env \
   network-assignment:latest \
-  /data/input/skimTijd_new_REF.mtx \
   /data/input/skimAfstand_new_REF.mtx \
   /data/input/nodes_v5.zip \
   /data/input/Zones_v6.zip \
-  /data/input/SEGS2020.csv \
   /data/input/links_v5.zip \
   /data/input/SupCoordinatesID.csv \
   /data/input/Cost_VehType_2016.csv \

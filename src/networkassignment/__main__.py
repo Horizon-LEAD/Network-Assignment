@@ -74,16 +74,12 @@ def main():
     parser = ArgumentParser(description=__doc__,
                             formatter_class=RawDefaultsHelpFormatter)
 
-    parser.add_argument('SKIMTIME', type=strfile,
-                        help='The path of the time skim matrix (mtx)')
     parser.add_argument('SKIMDISTANCE', type=strfile,
                         help='The path of the distance skim matrix (mtx)')
     parser.add_argument('NODES', type=strfile,
                         help='The path of the nodes file (zip)')
     parser.add_argument('ZONES', type=strfile,
                         help='The path of the zones shape file (zip)')
-    parser.add_argument('SEGS', type=strfile,
-                        help='The path of the socioeconomics data file (csv)')
     parser.add_argument('LINKS', type=strfile,
                         help='The path of the links shape file (zip)')
     parser.add_argument('SUP_COORDINATES_ID', type=strfile,
