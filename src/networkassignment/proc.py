@@ -6,6 +6,7 @@ import traceback
 from time import time
 from os.path import join, split, splitext
 from os import remove
+from glob import glob
 import multiprocessing as mp
 import functools
 from logging import getLogger
@@ -1695,7 +1696,7 @@ def run_model(cfg):
         MRDHlinks = MRDHlinks.drop(columns='NAME')
 
         # Initialize shapefile fields
-        w = shp.Writer(join(cfg['OUTDIR'], 'links_loaded_.shp'))
+        w = shp.Writer(join(cfg['OUTDIR'], 'links_loaded.shp'))
         w.field('LINKNR',     'N', size=8, decimal=0)
         w.field('A',          'N', size=9, decimal=0)
         w.field('B',          'N', size=9, decimal=0)
@@ -1748,6 +1749,12 @@ def run_model(cfg):
 
         w.close()
 
+        fshp = glob(join(cfg['OUTDIR'], "links_loaded.*"))
+        with ZipFile(join(cfg['OUTDIR'], "links_loaded.zip"), 'w') as f_zip:
+            for f_p in fshp:
+                f_zip.write(f_p, arcname=split(f_p)[1])
+        for f_p in fshp:
+            remove(f_p)
     # --------------------------- End of module ---------------------------
 
     totaltime = round(time() - start_time, 2)
