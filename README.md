@@ -133,7 +133,7 @@ Finally, the model can be executed with `docker run`:
 docker run --rm \
   -v $PWD/sample-data:/data \
   --env-file .env \
-  network-assignment:latest \
+  registry.gitlab.com/inlecom/lead/models/network-assignment:latest \
   /data/input/skimAfstand_new_REF.mtx \
   /data/input/nodes_v5.zip \
   /data/input/Zones_v6.zip \
