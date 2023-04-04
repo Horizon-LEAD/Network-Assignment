@@ -369,7 +369,7 @@
                 "name": "file",
                 "description": "",
                 "dataType": "file",
-                "extension": "csv",
+                "extension": "txt",
                 "validators": [
                     {
                         "name": "required",
