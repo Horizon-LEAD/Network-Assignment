@@ -6,7 +6,6 @@ import traceback
 from time import time
 from os.path import join, split, splitext
 from os import remove
-from glob import glob
 import multiprocessing as mp
 import functools
 from logging import getLogger
@@ -1749,7 +1748,11 @@ def run_model(cfg):
 
         w.close()
 
-        fshp = glob(join(cfg['OUTDIR'], "links_loaded.*"))
+        fshp = [
+            join(cfg['OUTDIR'], "links_loaded.shp"),
+            join(cfg['OUTDIR'], "links_loaded.shx"),
+            join(cfg['OUTDIR'], "links_loaded.dbf")
+        ]
         with ZipFile(join(cfg['OUTDIR'], "links_loaded.zip"), 'w') as f_zip:
             for f_p in fshp:
                 f_zip.write(f_p, arcname=split(f_p)[1])
