@@ -853,7 +853,7 @@
         },
         {
             "name": "Tours with Emissions",
-            "variableName": "Tours_Emissions",
+            "variableName": "Tours_Emission",
             "description": "",
             "isOutput": true,
             "isOptional": false,
