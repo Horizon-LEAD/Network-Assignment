@@ -5,6 +5,7 @@ from logging import getLogger
 from json import loads, JSONDecodeError
 
 
+EMPTY_VALS = ('', '""', "''")
 BOOL_VALUES = ('true', 't', 'on', '1', 'false', 'f', 'off', '0', "")
 BOOL_TRUE_VALUES = ('true', 't', 'on', '1')
 
@@ -53,7 +54,7 @@ def parse_env_values(env):
         for key in PARAMS_BOOL:
             config_env[key] = to_bool(env[key])
         for key in PARAMS_NUM:
-            config_env[key] = float(env[key]) if env[key] != "" else ""
+            config_env[key] = float(env[key]) if env[key] not in EMPTY_VALS else ""
         for key in PARAMS_LIST_STR:
             config_env[key] = [] if env[key] == '' else env[key].split(',')
         for key in PARAMS_LIST_BOOL:
